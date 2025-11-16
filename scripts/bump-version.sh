@@ -82,10 +82,10 @@ const versionFile = path.join(process.cwd(), 'lib', 'version.ts');
 const content = \`// Версия приложения и информация о коммите
 // Автоматически обновляется при изменении package.json и сборке
 
-export const APP_VERSION = '\$NEW_VERSION';
-export const COMMIT_HASH = '\${commitHash}';
-export const COMMIT_DATE = '\${commitDate}';
-export const GIT_BRANCH = '\${gitBranch}';
+export const APP_VERSION: string = '\$NEW_VERSION';
+export const COMMIT_HASH: string = '\${commitHash}';
+export const COMMIT_DATE: string = '\${commitDate}';
+export const GIT_BRANCH: string = '\${gitBranch}';
 \`;
 fs.writeFileSync(versionFile, content, 'utf-8');
 "
