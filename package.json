@@ -4,9 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/update-version.js && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "version": "node -p \"require('./package.json').version\"",
+    "version:patch": "./scripts/bump-version.sh patch",
+    "version:minor": "./scripts/bump-version.sh minor",
+    "version:major": "./scripts/bump-version.sh major",
+    "release": "./scripts/release.sh",
+    "update-version": "node scripts/update-version.js"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",

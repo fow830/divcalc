@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { calculateSofaCost, getSofaData, type SofaModel, type FixedData } from '@/lib/calculator';
+import { VersionBadge } from '@/components/version-badge';
 
 export function SofaCalculator() {
   const [fixedData, setFixedData] = useState<FixedData | null>(null);
@@ -204,6 +205,7 @@ export function SofaCalculator() {
           </CardContent>
         </Card>
       )}
+      <VersionBadge />
     </div>
   );
 }
