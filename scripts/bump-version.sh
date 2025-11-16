@@ -71,6 +71,8 @@ try {
     gitBranch = 'production';
   } else if (gitBranch === 'stage' || gitBranch === 'staging') {
     gitBranch = 'stage';
+  } else if (gitBranch.toLowerCase() === 'dev' || gitBranch === 'Dev' || gitBranch === 'development') {
+    gitBranch = 'dev';
   }
 } catch (error) {
   // Игнорируем ошибки
