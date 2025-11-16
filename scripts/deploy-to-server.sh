@@ -58,13 +58,13 @@ ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'ENDSSH'
 ENDSSH
 
 echo ""
-echo "📤 Клонируем/обновляем проект из GitHub (production branch)..."
+echo "📤 Клонируем/обновляем проект из GitHub (stage branch)..."
 
 # Клонируем или обновляем проект на сервере
 ssh -i $SSH_KEY $SERVER_USER@$SERVER_IP bash -s << ENDSSH
     PROJECT_DIR="$PROJECT_DIR"
     GITHUB_REPO="https://github.com/fow830/divcalc.git"
-    BRANCH="production"
+    BRANCH="stage"
     
     if [ -d "\$PROJECT_DIR/.git" ]; then
         echo "📥 Обновляем проект из GitHub (ветка \$BRANCH)..."
