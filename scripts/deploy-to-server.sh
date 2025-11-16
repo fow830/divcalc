@@ -58,30 +58,29 @@ ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'ENDSSH'
 ENDSSH
 
 echo ""
-echo "📤 Копируем файлы проекта на сервер..."
+echo "📤 Клонируем/обновляем проект из GitHub (production branch)..."
 
-# Создаем временный архив проекта
-echo "📦 Создаем архив проекта..."
-tar --exclude='node_modules' \
-    --exclude='.next' \
-    --exclude='.git' \
-    --exclude='excel-data.json' \
-    --exclude='read-excel.js' \
-    --exclude='калькуляция.xlsx' \
-    -czf /tmp/sofa-calculator.tar.gz .
-
-# Копируем архив на сервер
-echo "📤 Загружаем архив на сервер..."
-scp -i $SSH_KEY -o StrictHostKeyChecking=no /tmp/sofa-calculator.tar.gz $SERVER_USER@$SERVER_IP:/tmp/
-
-# Распаковываем и устанавливаем на сервере
-echo "📥 Распаковываем и устанавливаем на сервере..."
+# Клонируем или обновляем проект на сервере
 ssh -i $SSH_KEY $SERVER_USER@$SERVER_IP bash -s << ENDSSH
     PROJECT_DIR="$PROJECT_DIR"
-    cd \$PROJECT_DIR
+    GITHUB_REPO="https://github.com/fow830/divcalc.git"
+    BRANCH="production"
     
-    # Распаковываем архив
-    tar -xzf /tmp/sofa-calculator.tar.gz
+    if [ -d "\$PROJECT_DIR/.git" ]; then
+        echo "📥 Обновляем проект из GitHub (ветка \$BRANCH)..."
+        cd \$PROJECT_DIR
+        git fetch origin
+        git checkout \$BRANCH
+        git pull origin \$BRANCH
+    else
+        echo "📥 Клонируем проект из GitHub (ветка \$BRANCH)..."
+        rm -rf \$PROJECT_DIR
+        mkdir -p \$PROJECT_DIR
+        git clone -b \$BRANCH \$GITHUB_REPO \$PROJECT_DIR
+        cd \$PROJECT_DIR
+    fi
+    
+    echo "✅ Проект обновлен из ветки \$BRANCH"
     
     # Устанавливаем зависимости (включая dev для сборки)
     echo "📦 Устанавливаем зависимости..."
@@ -101,9 +100,6 @@ ssh -i $SSH_KEY $SERVER_USER@$SERVER_IP bash -s << ENDSSH
     
     # Настраиваем автозапуск
     pm2 startup systemd -u $USER --hp /home/$USER | grep -v PM2 | sudo bash || true
-    
-    # Очищаем временный файл
-    rm -f /tmp/sofa-calculator.tar.gz
     
     echo "✅ Приложение установлено и запущено!"
 ENDSSH
@@ -159,9 +155,6 @@ NGINX_CONFIG
     
     echo "✅ Nginx настроен!"
 ENDSSH
-
-# Очищаем локальный архив
-rm -f /tmp/sofa-calculator.tar.gz
 
 echo ""
 echo "✅ Деплой завершен успешно!"
