@@ -30,11 +30,15 @@ devProcess.stdout.on('data', (chunk) => {
   const message = chunk.toString();
   process.stdout.write(message);
 
+  // Запускаем прогрев после готовности сервера
   if (!warmupScheduled && /\bready\b/i.test(message)) {
     warmupScheduled = true;
-    warmup().catch((error) => {
-      console.warn('⚠️  Warmup failed:', error.message);
-    });
+    // Даём задержку, чтобы сервер точно был готов принимать запросы
+    setTimeout(() => {
+      warmup().catch((error) => {
+        console.warn('⚠️  Warmup failed:', error.message);
+      });
+    }, 1500);
   }
 });
 
@@ -57,19 +61,50 @@ FORWARD_SIGNALS.forEach((signal) => {
 
 async function warmup() {
   console.log('🔥 Прогреваем dev-сервер...');
-  for (const path of WARMUP_PATHS) {
+  
+  // Сначала прогреваем главную страницу, чтобы Next.js скомпилировал все чанки
+  const rootUrl = `${DEV_URL}/`;
+  try {
+    const rootRes = await fetch(rootUrl, { cache: 'no-store' });
+    if (rootRes.ok) {
+      console.log(`✅ Warmup ${rootUrl} → ${rootRes.status}`);
+      // Ждём немного, чтобы Next.js успел сгенерировать все чанки
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } else {
+      console.warn(`⚠️  Warmup ${rootUrl} → ${rootRes.status}`);
+    }
+  } catch (error) {
+    console.warn(`⚠️  Warmup ${rootUrl} → ${error.message}`);
+  }
+
+  // Теперь прогреваем остальные ресурсы с повторными попытками
+  for (const path of WARMUP_PATHS.slice(1)) {
     const url = `${DEV_URL}${path}`;
-    try {
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) {
-        console.warn(`⚠️  Warmup ${url} → ${res.status}`);
-      } else {
-        console.log(`✅ Warmup ${url} → ${res.status}`);
+    let success = false;
+    
+    // Пробуем до 3 раз с задержкой
+    for (let attempt = 1; attempt <= 3 && !success; attempt++) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (res.ok) {
+          console.log(`✅ Warmup ${url} → ${res.status}`);
+          success = true;
+        } else if (attempt < 3) {
+          // Если 404, ждём и пробуем ещё раз
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          console.warn(`⚠️  Warmup ${url} → ${res.status} (после ${attempt} попыток)`);
+        }
+      } catch (error) {
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          console.warn(`⚠️  Warmup ${url} → ${error.message} (после ${attempt} попыток)`);
+        }
       }
-    } catch (error) {
-      console.warn(`⚠️  Warmup ${url} → ${error.message}`);
     }
   }
+  
   console.log('✅ Dev-сервер прогрет');
 }
 
