@@ -51,47 +51,6 @@ fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
 
 echo "✅ Версия обновлена в package.json"
 
-# Обновляем lib/version.ts
-npm run update-version 2>/dev/null || node -e "
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
-
-let commitHash = 'unknown';
-let commitDate = 'unknown';
-let gitBranch = 'unknown';
-
-try {
-  commitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
-  commitDate = execSync('git log -1 --format=%cd --date=format:\"%Y-%m-%d %H:%M:%S\"', { encoding: 'utf-8' }).trim();
-  gitBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
-  
-  // Нормализуем название ветки для отображения
-  if (gitBranch === 'main' || gitBranch === 'master') {
-    gitBranch = 'production';
-  } else if (gitBranch === 'stage' || gitBranch === 'staging') {
-    gitBranch = 'stage';
-  } else if (gitBranch.toLowerCase() === 'dev' || gitBranch === 'Dev' || gitBranch === 'development') {
-    gitBranch = 'dev';
-  }
-} catch (error) {
-  // Игнорируем ошибки
-}
-
-const versionFile = path.join(process.cwd(), 'lib', 'version.ts');
-const content = \`// Версия приложения и информация о коммите
-// Автоматически обновляется при изменении package.json и сборке
-
-export const APP_VERSION: string = '\$NEW_VERSION';
-export const COMMIT_HASH: string = '\${commitHash}';
-export const COMMIT_DATE: string = '\${commitDate}';
-export const GIT_BRANCH: string = '\${gitBranch}';
-\`;
-fs.writeFileSync(versionFile, content, 'utf-8');
-"
-
-echo "✅ Версия обновлена в lib/version.ts"
-
 # Создаем git tag
 echo "🏷️  Создаю git tag v$NEW_VERSION..."
 git add package.json

@@ -86,9 +86,18 @@ ssh -i $SSH_KEY $SERVER_USER@$SERVER_IP bash -s << ENDSSH
     echo "📦 Устанавливаем зависимости..."
     npm install
     
-    # Собираем проект
+    # Собираем проект с передачей мета-информации через env
     echo "🔨 Собираем проект..."
-    npm run build
+    APP_VERSION=\$(node -p "require('./package.json').version")
+    COMMIT_SHA=\$(git rev-parse --short HEAD)
+    COMMIT_DATE=\$(git log -1 --format=%cd --date=format:'%Y-%m-%d %H:%M:%S')
+    BRANCH_NAME=\$(git rev-parse --abbrev-ref HEAD)
+
+    NEXT_PUBLIC_APP_VERSION="\$APP_VERSION" \\
+    NEXT_PUBLIC_GIT_COMMIT="\$COMMIT_SHA" \\
+    NEXT_PUBLIC_GIT_COMMIT_DATE="\$COMMIT_DATE" \\
+    NEXT_PUBLIC_GIT_BRANCH="\$BRANCH_NAME" \\
+      npm run build
     
     # Останавливаем старый процесс если есть
     pm2 delete divcalc 2>/dev/null || true
@@ -122,6 +131,18 @@ server {
     listen 80;
     server_name divcalc.flyplaza.ru;
 
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name divcalc.flyplaza.ru;
+
+    ssl_certificate /etc/letsencrypt/live/divcalc.flyplaza.ru/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/divcalc.flyplaza.ru/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -133,7 +154,6 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
         
-        # Таймауты
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;
         proxy_read_timeout 60s;
