@@ -95,18 +95,19 @@ export function SofaCalculator() {
               )}
             </div>
 
-            <div className="space-y-2">
+            <div className="grid w-full max-w-sm items-center gap-1.5">
               <Label htmlFor="backrestWidth">Ширина спинки (см)</Label>
               <Input
                 id="backrestWidth"
                 type="number"
                 min="1"
                 value={backrestWidth}
+                placeholder="Введите ширину спинки"
                 onChange={(e) => setBackrestWidth(Number(e.target.value))}
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="grid w-full max-w-sm items-center gap-1.5">
               <Label htmlFor="fabricPrice">Цена обивки (₽)</Label>
               <Input
                 id="fabricPrice"
@@ -114,6 +115,7 @@ export function SofaCalculator() {
                 min="0"
                 step="0.01"
                 value={fabricPrice}
+                placeholder="Стоимость за единицу обивки"
                 onChange={(e) => setFabricPrice(Number(e.target.value))}
               />
             </div>
