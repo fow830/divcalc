@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "predev": "node scripts/pre-dev.js",
-    "dev": "next dev",
+    "dev": "node scripts/run-dev.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
