@@ -12,8 +12,10 @@ export function SofaCalculator() {
   const [fixedData, setFixedData] = useState<FixedData | null>(null);
   const [models, setModels] = useState<SofaModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<SofaModel | null>(null);
-  const [backrestWidth, setBackrestWidth] = useState<number>(60);
-  const [fabricPrice, setFabricPrice] = useState<number>(3000);
+  const [backrestWidthInput, setBackrestWidthInput] = useState<string>('60');
+  const [lastBackrestWidth, setLastBackrestWidth] = useState<string>('60');
+  const [fabricPriceInput, setFabricPriceInput] = useState<string>('3000');
+  const [lastFabricPrice, setLastFabricPrice] = useState<string>('3000');
   const [fabricType, setFabricType] = useState<'мп' | 'м2'>('мп');
 
   useEffect(() => {
@@ -31,6 +33,9 @@ export function SofaCalculator() {
         console.error('Error loading data:', error);
       });
   }, []);
+
+  const backrestWidth = backrestWidthInput === '' ? 0 : Number(backrestWidthInput);
+  const fabricPrice = fabricPriceInput === '' ? 0 : Number(fabricPriceInput);
 
   const calculation = useMemo(() => {
     if (!selectedModel || !fixedData) {
@@ -52,6 +57,55 @@ export function SofaCalculator() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
+  };
+
+  const stripLeadingZeros = (value: string) => {
+    if (value.length <= 1) return value;
+    return value.replace(/^0+(?=\d)/, '');
+  };
+
+  const handleBackrestWidthChange = (value: string) => {
+    const digitsOnly = value.replace(/\D/g, '');
+    const sanitized = stripLeadingZeros(digitsOnly);
+    setBackrestWidthInput(sanitized);
+    if (sanitized) {
+      setLastBackrestWidth(sanitized);
+    }
+  };
+
+  const handleFabricPriceChange = (value: string) => {
+    let sanitized = value.replace(/[^\d.,]/g, '').replace(',', '.');
+    if (sanitized.includes('.')) {
+      const [whole, ...rest] = sanitized.split('.');
+      const normalizedWhole = stripLeadingZeros(whole) || '0';
+      sanitized = `${normalizedWhole}.${rest.join('')}`;
+    } else {
+      sanitized = stripLeadingZeros(sanitized);
+    }
+    setFabricPriceInput(sanitized);
+    if (sanitized) {
+      setLastFabricPrice(sanitized);
+    }
+  };
+
+  const handleBackrestWidthFocus = () => {
+    setBackrestWidthInput('');
+  };
+
+  const handleBackrestWidthBlur = () => {
+    if (!backrestWidthInput) {
+      setBackrestWidthInput(lastBackrestWidth || '1');
+    }
+  };
+
+  const handleFabricPriceFocus = () => {
+    setFabricPriceInput('');
+  };
+
+  const handleFabricPriceBlur = () => {
+    if (!fabricPriceInput) {
+      setFabricPriceInput(lastFabricPrice || '0');
+    }
   };
 
   return (
@@ -99,11 +153,14 @@ export function SofaCalculator() {
               <Label htmlFor="backrestWidth">Ширина спинки (см)</Label>
               <Input
                 id="backrestWidth"
-                type="number"
-                min="1"
-                value={backrestWidth}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={backrestWidthInput}
                 placeholder="Введите ширину спинки"
-                onChange={(e) => setBackrestWidth(Number(e.target.value))}
+                onFocus={handleBackrestWidthFocus}
+                onBlur={handleBackrestWidthBlur}
+                onChange={(e) => handleBackrestWidthChange(e.target.value)}
               />
             </div>
 
@@ -111,12 +168,14 @@ export function SofaCalculator() {
               <Label htmlFor="fabricPrice">Цена обивки (₽)</Label>
               <Input
                 id="fabricPrice"
-                type="number"
-                min="0"
-                step="0.01"
-                value={fabricPrice}
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*([.,][0-9]*)?"
+                value={fabricPriceInput}
                 placeholder="Стоимость за единицу обивки"
-                onChange={(e) => setFabricPrice(Number(e.target.value))}
+                onFocus={handleFabricPriceFocus}
+                onBlur={handleFabricPriceBlur}
+                onChange={(e) => handleFabricPriceChange(e.target.value)}
               />
             </div>
 
