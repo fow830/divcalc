@@ -14,7 +14,16 @@
     "version:major": "./scripts/bump-version.sh major",
     "release": "./scripts/release.sh",
     "env:local": "node scripts/gen-local-env.js",
-    "setup:hooks": "node scripts/install-hooks.js"
+    "setup:hooks": "node scripts/install-hooks.js",
+    "devops": "node scripts/deploy-agent.js",
+    "deploy:stage": "node scripts/deploy-agent.js deploy stage",
+    "deploy:prod": "node scripts/deploy-agent.js deploy production",
+    "status:stage": "node scripts/deploy-agent.js status stage",
+    "status:prod": "node scripts/deploy-agent.js status production",
+    "health:stage": "node scripts/deploy-agent.js health stage",
+    "health:prod": "node scripts/deploy-agent.js health production",
+    "logs:stage": "node scripts/deploy-agent.js logs stage",
+    "logs:prod": "node scripts/deploy-agent.js logs production"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",
