@@ -11,7 +11,8 @@
     "version:patch": "./scripts/bump-version.sh patch",
     "version:minor": "./scripts/bump-version.sh minor",
     "version:major": "./scripts/bump-version.sh major",
-    "release": "./scripts/release.sh"
+    "release": "./scripts/release.sh",
+    "env:local": "node scripts/gen-local-env.js"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",
