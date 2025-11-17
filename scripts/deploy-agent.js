@@ -113,8 +113,9 @@ class SSHClient {
   }
 
   executeScript(script) {
-    const escapedScript = script.replace(/'/g, "'\\''");
-    const command = `bash -c '${escapedScript}'`;
+    // Используем base64 для безопасной передачи скрипта
+    const encodedScript = Buffer.from(script).toString('base64');
+    const command = `echo '${encodedScript}' | base64 -d | bash`;
     return this.execute(command);
   }
 
