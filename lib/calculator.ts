@@ -18,6 +18,17 @@ export function getSofaData(): { fixedData: FixedData; models: SofaModel[] } {
   };
 }
 
+/**
+ * Вычисляет стоимость производства дивана на основе параметров модели и входных данных
+ * 
+ * @param model - Модель дивана с параметрами (ширина локтей, коэффициенты)
+ * @param backrestWidth - Ширина спинки в сантиметрах (должна быть >= 0)
+ * @param fabricPrice - Цена обивки за единицу измерения (должна быть >= 0)
+ * @param fabricType - Тип измерения обивки: 'мп' (метры погонные) или 'м2' (метры квадратные)
+ * @param fixedData - Фиксированные данные для расчета (по умолчанию используются глобальные константы)
+ * @returns Результат расчета с детализацией по статьям затрат
+ * @throws {Error} Если входные параметры некорректны
+ */
 export function calculateSofaCost(
   model: SofaModel,
   backrestWidth: number,
@@ -25,6 +36,27 @@ export function calculateSofaCost(
   fabricType: 'мп' | 'м2',
   fixedData: FixedData = FIXED_DATA
 ): CalculationResult {
+  // Валидация входных параметров
+  if (!model || typeof model.armrestWidth !== 'number' || model.armrestWidth < 0) {
+    throw new Error('Invalid model: armrestWidth must be a non-negative number');
+  }
+  
+  if (typeof backrestWidth !== 'number' || backrestWidth < 0 || !isFinite(backrestWidth)) {
+    throw new Error('Invalid backrestWidth: must be a non-negative finite number');
+  }
+  
+  if (typeof fabricPrice !== 'number' || fabricPrice < 0 || !isFinite(fabricPrice)) {
+    throw new Error('Invalid fabricPrice: must be a non-negative finite number');
+  }
+  
+  if (fabricType !== 'мп' && fabricType !== 'м2') {
+    throw new Error('Invalid fabricType: must be either "мп" or "м2"');
+  }
+  
+  if (!fixedData || typeof fixedData.armrestProductionPrice !== 'number') {
+    throw new Error('Invalid fixedData: required fields are missing');
+  }
+
   // Расчет стоимости производства локтей
   const armrestProductionCost =
     model.armrestWidth *
@@ -60,12 +92,15 @@ export function calculateSofaCost(
     armrestFabricCost +
     backrestFabricCost;
 
+  // Округление до 2 знаков после запятой
+  const roundToCents = (value: number): number => Math.round(value * 100) / 100;
+
   return {
-    armrestProductionCost: Math.round(armrestProductionCost * 100) / 100,
-    backrestProductionCost: Math.round(backrestProductionCost * 100) / 100,
-    armrestFabricCost: Math.round(armrestFabricCost * 100) / 100,
-    backrestFabricCost: Math.round(backrestFabricCost * 100) / 100,
-    total: Math.round(total * 100) / 100,
+    armrestProductionCost: roundToCents(armrestProductionCost),
+    backrestProductionCost: roundToCents(backrestProductionCost),
+    armrestFabricCost: roundToCents(armrestFabricCost),
+    backrestFabricCost: roundToCents(backrestFabricCost),
+    total: roundToCents(total),
   };
 }
 

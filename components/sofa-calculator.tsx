@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { calculateSofaCost, getSofaData, type SofaModel, type FixedData } from '@/lib/calculator';
+import { calculateSofaCost, type SofaModel, type FixedData } from '@/lib/calculator';
 import { VersionBadge } from '@/components/version-badge';
+
+type LoadingState = 'idle' | 'loading' | 'success' | 'error';
+
+interface DataLoadError {
+  message: string;
+  retry?: () => void;
+}
 
 export function SofaCalculator() {
   const [fixedData, setFixedData] = useState<FixedData | null>(null);
@@ -17,37 +24,79 @@ export function SofaCalculator() {
   const [fabricPriceInput, setFabricPriceInput] = useState<string>('3000');
   const [lastFabricPrice, setLastFabricPrice] = useState<string>('3000');
   const [fabricType, setFabricType] = useState<'мп' | 'м2'>('мп');
+  const [loadingState, setLoadingState] = useState<LoadingState>('idle');
+  const [error, setError] = useState<DataLoadError | null>(null);
 
-  useEffect(() => {
-    // Загружаем данные через API
-    fetch('/api/sofa-data')
-      .then((res) => res.json())
-      .then((data) => {
-        setFixedData(data.fixedData);
-        setModels(data.models);
-        if (data.models.length > 0) {
-          setSelectedModel(data.models[0]);
-        }
-      })
-      .catch((error) => {
-        console.error('Error loading data:', error);
+  const loadData = useCallback(async () => {
+    setLoadingState('loading');
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/sofa-data');
+      
+      if (!response.ok) {
+        throw new Error(`Ошибка загрузки данных: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.fixedData || !data.models || !Array.isArray(data.models)) {
+        throw new Error('Неверный формат данных от сервера');
+      }
+      
+      setFixedData(data.fixedData);
+      setModels(data.models);
+      
+      if (data.models.length > 0) {
+        setSelectedModel(data.models[0]);
+      } else {
+        throw new Error('Нет доступных моделей диванов');
+      }
+      
+      setLoadingState('success');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка при загрузке данных';
+      setError({
+        message: errorMessage,
+        retry: loadData,
       });
+      setLoadingState('error');
+      console.error('Error loading data:', err);
+    }
   }, []);
 
-  const backrestWidth = backrestWidthInput === '' ? 0 : Number(backrestWidthInput);
-  const fabricPrice = fabricPriceInput === '' ? 0 : Number(fabricPriceInput);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Валидация и преобразование входных данных
+  const backrestWidth = useMemo(() => {
+    const value = backrestWidthInput === '' ? 0 : Number(backrestWidthInput);
+    return isNaN(value) || value < 0 ? 0 : Math.min(value, 999);
+  }, [backrestWidthInput]);
+
+  const fabricPrice = useMemo(() => {
+    const value = fabricPriceInput === '' ? 0 : Number(fabricPriceInput);
+    return isNaN(value) || value < 0 ? 0 : value;
+  }, [fabricPriceInput]);
 
   const calculation = useMemo(() => {
     if (!selectedModel || !fixedData) {
       return null;
     }
-    return calculateSofaCost(
-      selectedModel,
-      backrestWidth,
-      fabricPrice,
-      fabricType,
-      fixedData
-    );
+    
+    try {
+      return calculateSofaCost(
+        selectedModel,
+        backrestWidth,
+        fabricPrice,
+        fabricType,
+        fixedData
+      );
+    } catch (error) {
+      console.error('Calculation error:', error);
+      return null;
+    }
   }, [selectedModel, backrestWidth, fabricPrice, fabricType, fixedData]);
 
   const formatCurrency = (value: number) => {
@@ -68,7 +117,7 @@ export function SofaCalculator() {
     const digitsOnly = value.replace(/\D/g, '').slice(0, 3);
     const sanitized = stripLeadingZeros(digitsOnly);
     setBackrestWidthInput(sanitized);
-    if (sanitized) {
+    if (sanitized && sanitized !== '0') {
       setLastBackrestWidth(sanitized);
     }
   };
@@ -93,7 +142,7 @@ export function SofaCalculator() {
   };
 
   const handleBackrestWidthBlur = () => {
-    if (!backrestWidthInput) {
+    if (!backrestWidthInput || backrestWidthInput === '0') {
       setBackrestWidthInput(lastBackrestWidth || '1');
     }
   };
@@ -103,10 +152,44 @@ export function SofaCalculator() {
   };
 
   const handleFabricPriceBlur = () => {
-    if (!fabricPriceInput) {
+    if (!fabricPriceInput || fabricPriceInput === '0' || fabricPriceInput === '.') {
       setFabricPriceInput(lastFabricPrice || '0');
     }
   };
+
+  // Состояние загрузки или ошибки
+  if (loadingState === 'loading') {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-4xl">
+        <div className="text-center py-12">
+          <div className="text-muted-foreground">Загрузка данных...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingState === 'error' && error) {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-4xl">
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Ошибка загрузки данных</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-4">{error.message}</p>
+            {error.retry && (
+              <button
+                onClick={error.retry}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              >
+                Попробовать снова
+              </button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
@@ -232,7 +315,7 @@ export function SofaCalculator() {
               </>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                Загрузка данных...
+                Выберите модель дивана для расчета
               </div>
             )}
           </CardContent>
