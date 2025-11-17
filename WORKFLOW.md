@@ -3,7 +3,7 @@
 ## 📋 Обзор проекта
 
 **Название**: Калькулятор стоимости диванов  
-**Технологии**: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui  
+**Технологии**: Next.js 16, TypeScript, Tailwind CSS, shadcn/ui  
 **Деплой**: Сервер 31.130.147.54, домен divcalc.flyplaza.ru
 
 ---

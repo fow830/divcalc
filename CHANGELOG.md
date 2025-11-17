@@ -5,6 +5,14 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и этот проект придерживается [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [Unreleased]
+
+### Изменено
+- Обновлен Next.js с версии 14.2.5 до 16.0.3
+- Обновлен React с версии 18.3.1 до 19.2.0
+- Обновлен React DOM с версии 18.3.1 до 19.2.0
+- Обновлены типы TypeScript для React (@types/react и @types/react-dom) до версии 19.0.0
+
 ## [1.0.0] - 2025-01-16
 
 ### Добавлено
@@ -20,7 +28,7 @@
 - Скрипты для автоматизации деплоя
 
 ### Технические детали
-- Next.js 14 с App Router
+- Next.js 16 с App Router
 - TypeScript
 - Tailwind CSS
 - shadcn/ui компоненты

@@ -4,7 +4,7 @@
 
 ## Технологии
 
-- **Next.js 14** - React фреймворк с App Router
+- **Next.js 16** - React фреймворк с App Router
 - **TypeScript** - типизированный JavaScript
 - **Tailwind CSS** - утилитарный CSS фреймворк
 - **shadcn/ui** - компоненты UI
