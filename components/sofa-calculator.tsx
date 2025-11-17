@@ -124,10 +124,18 @@ export function SofaCalculator() {
 
   const handleFabricPriceChange = (value: string) => {
     let sanitized = value.replace(/[^\d.,]/g, '').replace(',', '.');
+    // Ограничение до 5 символов
+    if (sanitized.length > 5) {
+      sanitized = sanitized.slice(0, 5);
+    }
     if (sanitized.includes('.')) {
       const [whole, ...rest] = sanitized.split('.');
       const normalizedWhole = stripLeadingZeros(whole) || '0';
       sanitized = `${normalizedWhole}.${rest.join('')}`;
+      // Проверяем общую длину после нормализации
+      if (sanitized.length > 5) {
+        sanitized = sanitized.slice(0, 5);
+      }
     } else {
       sanitized = stripLeadingZeros(sanitized);
     }
@@ -255,6 +263,7 @@ export function SofaCalculator() {
                 type="text"
                 inputMode="decimal"
                 pattern="[0-9]*([.,][0-9]*)?"
+                maxLength={5}
                 value={fabricPriceInput}
                 placeholder="Стоимость за единицу обивки"
                 onFocus={handleFabricPriceFocus}
