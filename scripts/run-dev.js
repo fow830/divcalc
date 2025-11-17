@@ -11,13 +11,6 @@ const { spawn } = require('child_process');
 const DEV_COMMAND = process.env.NEXT_DEV_COMMAND || 'next';
 const DEV_ARGS = ['dev'];
 const DEV_URL = process.env.NEXT_DEV_URL || 'http://localhost:3000';
-const WARMUP_PATHS = [
-  '/',
-  '/_next/static/css/app/layout.css',
-  '/_next/static/chunks/main-app.js',
-  '/_next/static/chunks/app-pages-internals.js',
-  '/_next/static/chunks/app/page.js',
-];
 
 let warmupScheduled = false;
 
@@ -59,53 +52,133 @@ FORWARD_SIGNALS.forEach((signal) => {
   });
 });
 
+/**
+ * Извлекает все пути к ресурсам из HTML
+ */
+function extractResourcePaths(html) {
+  const paths = new Set();
+  
+  // Извлекаем href из link тегов
+  const linkRegex = /<link[^>]+href=["']([^"']+)["'][^>]*>/gi;
+  let match;
+  while ((match = linkRegex.exec(html)) !== null) {
+    const path = match[1];
+    if (path.startsWith('/') || path.startsWith('http://localhost:3000/')) {
+      paths.add(path.replace('http://localhost:3000', ''));
+    }
+  }
+  
+  // Извлекаем src из script тегов
+  const scriptRegex = /<script[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  while ((match = scriptRegex.exec(html)) !== null) {
+    const path = match[1];
+    if (path.startsWith('/') || path.startsWith('http://localhost:3000/')) {
+      paths.add(path.replace('http://localhost:3000', ''));
+    }
+  }
+  
+  // Извлекаем пути из inline скриптов (Next.js может вставлять пути в JS)
+  const inlineScriptRegex = /<script[^>]*>([^<]*HL\[["']([^"']+)["'][^<]*)<\/script>/gi;
+  while ((match = inlineScriptRegex.exec(html)) !== null) {
+    const path = match[2];
+    if (path && path.startsWith('/')) {
+      paths.add(path);
+    }
+  }
+  
+  // Также ищем пути в строковых литералах внутри скриптов
+  const stringLiteralRegex = /["'](\/_next\/[^"']+)["']/g;
+  while ((match = stringLiteralRegex.exec(html)) !== null) {
+    paths.add(match[1]);
+  }
+  
+  return Array.from(paths).filter(path => 
+    path.startsWith('/_next/') || path === '/'
+  );
+}
+
+/**
+ * Прогревает ресурс с повторными попытками
+ */
+async function warmupResource(url, maxAttempts = 5) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (res.ok) {
+        return { success: true, status: res.status };
+      } else if (attempt < maxAttempts) {
+        // Если 404, ждём и пробуем ещё раз
+        await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+      } else {
+        return { success: false, status: res.status };
+      }
+    } catch (error) {
+      if (attempt < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+      } else {
+        return { success: false, error: error.message };
+      }
+    }
+  }
+  return { success: false, error: 'Max attempts reached' };
+}
+
 async function warmup() {
   console.log('🔥 Прогреваем dev-сервер...');
   
-  // Сначала прогреваем главную страницу, чтобы Next.js скомпилировал все чанки
   const rootUrl = `${DEV_URL}/`;
-  try {
-    const rootRes = await fetch(rootUrl, { cache: 'no-store' });
-    if (rootRes.ok) {
-      console.log(`✅ Warmup ${rootUrl} → ${rootRes.status}`);
-      // Ждём немного, чтобы Next.js успел сгенерировать все чанки
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    } else {
-      console.warn(`⚠️  Warmup ${rootUrl} → ${rootRes.status}`);
-    }
-  } catch (error) {
-    console.warn(`⚠️  Warmup ${rootUrl} → ${error.message}`);
-  }
-
-  // Теперь прогреваем остальные ресурсы с повторными попытками
-  for (const path of WARMUP_PATHS.slice(1)) {
-    const url = `${DEV_URL}${path}`;
-    let success = false;
-    
-    // Пробуем до 3 раз с задержкой
-    for (let attempt = 1; attempt <= 3 && !success; attempt++) {
-      try {
-        const res = await fetch(url, { cache: 'no-store' });
-        if (res.ok) {
-          console.log(`✅ Warmup ${url} → ${res.status}`);
-          success = true;
-        } else if (attempt < 3) {
-          // Если 404, ждём и пробуем ещё раз
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } else {
-          console.warn(`⚠️  Warmup ${url} → ${res.status} (после ${attempt} попыток)`);
-        }
-      } catch (error) {
-        if (attempt < 3) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } else {
-          console.warn(`⚠️  Warmup ${url} → ${error.message} (после ${attempt} попыток)`);
-        }
+  let html = '';
+  
+  // Запрашиваем главную страницу несколько раз, пока не получим успешный ответ
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      const rootRes = await fetch(rootUrl, { cache: 'no-store' });
+      if (rootRes.ok) {
+        html = await rootRes.text();
+        console.log(`✅ Загружена главная страница → ${rootRes.status}`);
+        break;
+      } else if (attempt < 5) {
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+      } else {
+        console.warn(`⚠️  Не удалось загрузить главную страницу → ${rootRes.status}`);
+        return;
+      }
+    } catch (error) {
+      if (attempt < 5) {
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+      } else {
+        console.warn(`⚠️  Ошибка загрузки главной страницы: ${error.message}`);
+        return;
       }
     }
   }
   
-  console.log('✅ Dev-сервер прогрет');
+  if (!html) {
+    console.warn('⚠️  Не удалось получить HTML для парсинга');
+    return;
+  }
+  
+  // Извлекаем все пути к ресурсам из HTML
+  const resourcePaths = extractResourcePaths(html);
+  console.log(`📦 Найдено ${resourcePaths.length} ресурсов для прогрева`);
+  
+  // Прогреваем все найденные ресурсы
+  const results = { success: 0, failed: 0 };
+  
+  for (const path of resourcePaths) {
+    const url = path.startsWith('http') ? path : `${DEV_URL}${path}`;
+    const result = await warmupResource(url);
+    
+    if (result.success) {
+      console.log(`✅ ${path} → ${result.status}`);
+      results.success++;
+    } else {
+      console.warn(`⚠️  ${path} → ${result.status || result.error}`);
+      results.failed++;
+    }
+  }
+  
+  console.log(`✅ Dev-сервер прогрет: ${results.success} успешно, ${results.failed} ошибок`);
 }
 
 
