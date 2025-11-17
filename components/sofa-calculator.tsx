@@ -65,7 +65,7 @@ export function SofaCalculator() {
   };
 
   const handleBackrestWidthChange = (value: string) => {
-    const digitsOnly = value.replace(/\D/g, '');
+    const digitsOnly = value.replace(/\D/g, '').slice(0, 3);
     const sanitized = stripLeadingZeros(digitsOnly);
     setBackrestWidthInput(sanitized);
     if (sanitized) {
@@ -156,6 +156,7 @@ export function SofaCalculator() {
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
+                maxLength={3}
                 value={backrestWidthInput}
                 placeholder="Введите ширину спинки"
                 onFocus={handleBackrestWidthFocus}
