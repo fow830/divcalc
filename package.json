@@ -13,7 +13,8 @@
     "version:minor": "./scripts/bump-version.sh minor",
     "version:major": "./scripts/bump-version.sh major",
     "release": "./scripts/release.sh",
-    "env:local": "node scripts/gen-local-env.js"
+    "env:local": "node scripts/gen-local-env.js",
+    "setup:hooks": "node scripts/install-hooks.js"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",
