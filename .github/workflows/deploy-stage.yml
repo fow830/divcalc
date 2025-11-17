@@ -1,0 +1,125 @@
+name: Deploy to Stage
+
+on:
+  push:
+    branches:
+      - stage
+
+jobs:
+  deploy:
+    name: Deploy to Stage Environment
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build project
+        run: npm run build
+      
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      
+      - name: Deploy to Stage Server
+        env:
+          SERVER_IP: ${{ secrets.STAGE_SERVER_IP }}
+          SERVER_USER: ${{ secrets.STAGE_SERVER_USER }}
+          PROJECT_DIR: /var/www/divcalc-stage
+          PM2_NAME: divcalc-stage
+          PORT: 3001
+        run: |
+          # Проверка SSH подключения
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $SERVER_USER@$SERVER_IP "echo '✅ SSH подключение успешно'" || {
+            echo "❌ Ошибка подключения к серверу"
+            exit 1
+          }
+          
+          # Обновляем проект на сервере
+          ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP bash << 'ENDSSH'
+            PROJECT_DIR="/var/www/divcalc-stage"
+            GITHUB_REPO="https://github.com/fow830/divcalc.git"
+            BRANCH="stage"
+            PORT="3001"
+            PM2_NAME="divcalc-stage"
+            
+            # Обновляем проект из GitHub
+            if [ -d "$PROJECT_DIR/.git" ]; then
+              echo "📥 Обновляем проект из GitHub (ветка $BRANCH)..."
+              cd $PROJECT_DIR
+              git fetch origin
+              git checkout $BRANCH
+              git reset --hard origin/$BRANCH
+            else
+              echo "📥 Клонируем проект из GitHub (ветка $BRANCH)..."
+              rm -rf $PROJECT_DIR
+              mkdir -p $PROJECT_DIR
+              git clone -b $BRANCH $GITHUB_REPO $PROJECT_DIR
+              cd $PROJECT_DIR
+            fi
+            
+            echo "✅ Проект обновлен из ветки $BRANCH"
+            
+            # Устанавливаем зависимости
+            echo "📦 Устанавливаем зависимости..."
+            npm install
+            
+            # Собираем проект
+            echo "🔨 Собираем проект..."
+            APP_VERSION=$(node -p "require('./package.json').version")
+            COMMIT_SHA=$(git rev-parse --short HEAD)
+            COMMIT_DATE=$(git log -1 --format=%cd --date=format:'%Y-%m-%d %H:%M:%S')
+            BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
+            
+            NEXT_PUBLIC_APP_VERSION="$APP_VERSION" \
+            NEXT_PUBLIC_GIT_COMMIT="$COMMIT_SHA" \
+            NEXT_PUBLIC_GIT_COMMIT_DATE="$COMMIT_DATE" \
+            NEXT_PUBLIC_GIT_BRANCH="$BRANCH_NAME" \
+              npm run build
+            
+            # Останавливаем старый процесс если есть
+            pm2 delete $PM2_NAME 2>/dev/null || true
+            
+            # Запускаем приложение
+            echo "🚀 Запускаем приложение на порту $PORT..."
+            PORT=$PORT pm2 start npm --name "$PM2_NAME" -- start
+            pm2 save
+            
+            # Настраиваем автозапуск
+            pm2 startup systemd -u $USER --hp /home/$USER | grep -v PM2 | sudo bash || true
+            
+            echo "✅ Приложение установлено и запущено!"
+          ENDSSH
+      
+      - name: Health Check
+        env:
+          SERVER_IP: ${{ secrets.STAGE_SERVER_IP }}
+          SERVER_USER: ${{ secrets.STAGE_SERVER_USER }}
+        run: |
+          echo "🏥 Проверка здоровья приложения..."
+          sleep 5
+          ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "pm2 describe divcalc-stage" || {
+            echo "⚠️  Приложение не запущено в PM2"
+            exit 1
+          }
+          echo "✅ Health check пройден"
+      
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 Деплой на Stage завершен успешно!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 Приложение доступно: https://stage-divcalc.flyplaza.ru" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📝 Коммит: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "🌿 Ветка: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+
