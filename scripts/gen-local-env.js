@@ -27,10 +27,8 @@ const meta = {
     "git log -1 --format=%cd --date=format:'%Y-%m-%d %H:%M:%S'",
     FALLBACKS.date
   ),
-  NEXT_PUBLIC_GIT_BRANCH: fromGit(
-    'git rev-parse --abbrev-ref HEAD',
-    FALLBACKS.branch
-  ),
+  // При локальной разработке всегда показываем "local"
+  NEXT_PUBLIC_GIT_BRANCH: FALLBACKS.branch,
 };
 
 const output = Object.entries(meta)

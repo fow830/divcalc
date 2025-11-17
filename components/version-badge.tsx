@@ -3,8 +3,12 @@
 import { APP_VERSION, COMMIT_HASH, COMMIT_DATE, GIT_BRANCH } from '@/lib/version';
 
 export function VersionBadge() {
-  const isProduction = GIT_BRANCH === 'production' || GIT_BRANCH === 'main' || GIT_BRANCH === 'master';
-  const isDev = GIT_BRANCH === 'dev' || GIT_BRANCH === 'Dev' || GIT_BRANCH === 'development';
+  // Определяем локальную разработку: если ветка или коммит равны fallback значениям
+  const isLocal = GIT_BRANCH === 'local' || COMMIT_HASH === 'local' || !COMMIT_DATE;
+  const displayBranch = isLocal ? 'local' : GIT_BRANCH;
+  
+  const isProduction = displayBranch === 'production' || displayBranch === 'main' || displayBranch === 'master';
+  const isDev = displayBranch === 'dev' || displayBranch === 'Dev' || displayBranch === 'development';
   const branchColor = isProduction 
     ? 'text-red-500' 
     : isDev 
@@ -16,7 +20,7 @@ export function VersionBadge() {
       <div className="space-y-1">
         <div className="font-medium">v{APP_VERSION}</div>
         <div className={`text-[10px] font-semibold ${branchColor}`}>
-          {GIT_BRANCH}
+          {displayBranch}
         </div>
         <div className="text-[10px] opacity-75">
           <div>Commit: {COMMIT_HASH}</div>
